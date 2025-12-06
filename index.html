@@ -7,223 +7,255 @@
     <style>
         * { margin: 0; padding: 0; }
         html, body {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
+            margin: 0; padding: 0;
+            width: 100%; height: 100%;
             overflow: hidden;
             background: #000;
-            touch-action: none; 
+            touch-action: none;
         }
-        canvas {
-            display: block;
-        }
+        canvas { display: block; }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.min.js"></script>
 </head>
 <body>
-    <script>
-        let particles = [];
-        let poly = [];
-        let problems = [];
-        let arrows = [];
-        let numParticles = 1500; 
-        let scaleFactor;
-        let baseDist;
+<script>
+// Fahamida — Intense Heart Under Attack (2025 version)
+let particles = [];
+let poly = [];
+let problems = [];
+let arrows = [];
+let numParticles = 1600;
+let scaleFactor;
+let baseDist;
 
-        let problemNames = [
-            "MY HEART", 
-            "STRESS", 
-            "LOVE", 
-            "DEPRESSION", 
-            "LIFE", 
-            "PAIN", 
-            "DREAM", 
-            "FAMILY", 
-            "FRIENDS"
-        ];
+let problemNames = [
+    "MY HEART", "STRESS", "LOVE", "DEPRESSION",
+    "LIFE", "PAIN", "DREAM", "FAMILY", "FRIENDS"
+];
 
-        let touchX = 0;
-        let touchY = 0;
-        let isTouchDevice = 'ontouchstart' in window;
+let touchX = 0, touchY = 0;
+let isTouchDevice = 'ontouchstart' in window;
 
-        function setup() {
-            createCanvas(windowWidth, windowHeight);
-            noStroke();
+function setup() {
+    createCanvas(windowWidth, windowHeight);
+    noStroke();
+    updateScale();
+    generateHeart();
+    generateParticles();
+    generateProblems();
+}
 
-            updateScale();
-            generateHeart();
-            generateParticles();
-            generateProblems();
+function updateScale() {
+    let minDim = min(width, height);
+    scaleFactor = minDim / (width < 600 ? 45 : 50);
+    let radiusMult = width < 600 ? 0.35 : 0.40;
+    baseDist = minDim * radiusMult;
+}
+
+function generateHeart() {
+    poly = [];
+    let heartYOffset = scaleFactor * 0.5;
+    for (let t = 0; t < TWO_PI; t += 0.04) {
+        let x = scaleFactor * 16 * pow(sin(t), 3);
+        let y = -scaleFactor * (13 * cos(t) - 5 * cos(2*t) - 2 * cos(3*t) - cos(4*t));
+        poly.push({
+            x: x + width / 2,
+            y: y + height / 2 - heartYOffset
+        });
+    }
+}
+
+function generateParticles() {
+    particles = [];
+    let attempts = 0;
+    let searchArea = min(width, height) * 0.25;
+
+    while (particles.length < numParticles && attempts < 15000) {
+        let rx = random(width / 2 - searchArea, width / 2 + searchArea);
+        let ry = random(height / 2 - searchArea, height / 2 + searchArea);
+        if (pointInPolygon({x: rx, y: ry}, poly)) {
+            particles.push({
+                pos: createVector(rx, ry),
+                home: createVector(rx, ry),
+                vel: createVector(0, 0)
+            });
         }
+        attempts++;
+    }
+}
 
-        function updateScale() {
-            let minDim = min(width, height);
-            scaleFactor = minDim / (width < 600 ? 45 : 50); 
-            let radiusMult = width < 600 ? 0.35 : 0.40;
-            baseDist = minDim * radiusMult; 
-        }
+function generateProblems() {
+    problems = [];
+    for (let i = 0; i < problemNames.length; i++) {
+        let angle = i * TWO_PI / problemNames.length - HALF_PI;
+        let dist = baseDist;
+        let px = width / 2 + dist * cos(angle);
+        let py = height / 2 + dist * sin(angle);
+        problems.push({ x: px, y: py, name: problemNames[i] });
+    }
+}
 
-        function generateHeart() {
-            poly = [];
-            let heartYOffset = scaleFactor * 0.5; 
-            
-            for (let t = 0; t < TWO_PI; t += 0.04) {
-                let x = scaleFactor * 16 * pow(sin(t), 3);
-                let y = -scaleFactor * (13 * cos(t) - 5 * cos(2*t) - 2 * cos(3*t) - cos(4*t));
-                poly.push({
-                    x: x + width / 2,
-                    y: y + height / 2 - heartYOffset 
+function draw() {
+    // Subtle trail background
+    fill(0, 0, 0, 45);
+    rect(0, 0, width, height);
+
+    let mx = isTouchDevice ? touchX : mouseX;
+    let my = isTouchDevice ? touchY : mouseY;
+
+    // ——— FAST & DRAMATIC ARROWS ———
+    if (frameCount % 4 === 0 && random(1) < 0.75) {
+        let prob = random(problems);
+        let arr = { pos: createVector(prob.x, prob.y), age: 0 };
+
+        let center = createVector(width / 2, height / 2);
+        let speed = min(width, height) * 0.045;           // 3× faster!
+        let dir = center.copy().sub(arr.pos).normalize().mult(speed);
+        dir.rotate(random(-0.35, 0.35));                  // slight chaos
+        arr.vel = dir;
+        arrows.push(arr);
+    }
+
+    // Draw & update arrows
+    for (let i = arrows.length - 1; i >= 0; i--) {
+        let a = arrows[i];
+        a.age++;
+        a.pos.add(a.vel);
+
+        let life = constrain(a.age / 35, 0, 1);
+        let alpha = 255 * (1 - life);
+        let weight = map(life, 0, 1, 5, 1);
+
+        // Red glow trail
+        strokeWeight(weight + 4);
+        stroke(255, 80, 80, alpha * 0.5);
+        line(a.pos.x, a.pos.y, a.pos.x - a.vel.x * 2.5, a.pos.y - a.vel.y * 2.5);
+
+        // Bright white arrow shaft
+        strokeWeight(weight);
+        stroke(255, 255, 255, alpha);
+        let headLen = min(width, height) * 0.04;
+        let from = a.pos.copy().sub(a.vel.copy().normalize().mult(headLen));
+        line(from.x, from.y, a.pos.x, a.pos.y);
+
+        // Arrowhead (triangle)
+        push();
+        translate(a.pos.x, a.pos.y);
+        rotate(a.vel.heading());
+        fill(255, alpha);
+        noStroke();
+        triangle(0, 0, -14, -6, -14, 6);
+        pop();
+
+        // Impact → explosion + remove
+        if (a.pos.dist(createVector(width / 2, height / 2)) < scaleFactor * 14) {
+            // Burst particles
+            for (let k = 0; k < 15; k++) {
+                particles.push({
+                    pos: a.pos.copy(),
+                    vel: p5.Vector.random2D().mult(random(4, 11)),
+                    life: 255,
+                    isBurst: true
                 });
             }
+            arrows.splice(i, 1);
+        }
+    }
+    noStroke();
+
+    // ——— PARTICLES (heart + bursts) ———
+    for (let i = particles.length - 1; i >= 0; i--) {
+        let p = particles[i];
+
+        if (p.isBurst) {
+            // Explosion particles
+            p.life -= 14;
+            p.vel.mult(0.94);
+            p.pos.add(p.vel);
+            fill(255, 120 + random(135), 120, p.life);
+            ellipse(p.pos.x, p.pos.y, p.life / 18);
+            if (p.life <= 0) particles.splice(i, 1);
+            continue;
         }
 
-        function generateParticles() {
-            particles = [];
-            let attempts = 0;
-            let searchArea = min(width, height) * 0.25;
+        // Normal heart particles
+        let acc = createVector(0, 0);
+        let toHome = p.home.copy().sub(p.pos).mult(0.022);
+        acc.add(toHome);
 
-            while (particles.length < numParticles && attempts < 10000) {
-                let rx = random(width / 2 - searchArea, width / 2 + searchArea);
-                let ry = random(height / 2 - searchArea, height / 2 + searchArea);
+        let mouse = createVector(mx, my);
+        let dMouse = p.pos.dist(mouse);
+        let repelRadius = isTouchDevice ? 160 : 110;
 
-                if (pointInPolygon({x: rx, y: ry}, poly)) {
-                    particles.push({
-                        pos: createVector(rx, ry),
-                        home: createVector(rx, ry),
-                        vel: createVector(0, 0)
-                    });
-                }
-                attempts++;
+        if (dMouse < repelRadius && (mx !== 0 || my !== 0)) {
+            let repel = p.pos.copy().sub(mouse).normalize().mult(22 / (dMouse * 0.05 + 1));
+            acc.add(repel);
+        }
+
+        // Repel from arrows
+        for (let a of arrows) {
+            let d = p.pos.dist(a.pos);
+            if (d < repelRadius * 0.6) {
+                let repel = p.pos.copy().sub(a.pos).normalize().mult(12 / (d + 1));
+                acc.add(repel);
             }
         }
 
-        function generateProblems() {
-            problems = [];
-            for (let i = 0; i < problemNames.length; i++) {
-                let angle = i * TWO_PI / problemNames.length - HALF_PI; 
-                let dist = baseDist;
-                let px = width / 2 + dist * cos(angle);
-                let py = height / 2 + dist * sin(angle);
-                problems.push({
-                    x: px, 
-                    y: py, 
-                    name: problemNames[i]
-                });
-            }
-        }
+        p.vel.add(acc);
+        p.vel.mult(0.93);
+        p.pos.add(p.vel);
 
-        function draw() {
-            // Clean dark background with subtle trails
-            fill(0, 0, 0, 50);
-            rect(0, 0, width, height);
+        fill(255, 255, 255, 240);
+        ellipse(p.pos.x, p.pos.y, 2.8, 2.8);
+    }
 
-            let mx = isTouchDevice ? touchX : mouseX;
-            let my = isTouchDevice ? touchY : mouseY;
+    // ——— TEXT ———
+    textAlign(CENTER, CENTER);
 
-            // Arrow generation and movement
-            if (frameCount % 6 === 0 && random(1) < 0.35) {
-                let prob = random(problems);
-                let arr = {pos: createVector(prob.x, prob.y)};
-                let center = createVector(width / 2, height / 2);
-                let speed = min(width, height) * 0.015;
-                let dir = center.copy().sub(arr.pos).normalize().mult(speed);
-                arr.vel = dir;
-                arrows.push(arr);
-            }
+    // Problem labels
+    let fontSize = constrain(min(width, height) / (width < 600 ? 28 : 32), 11, 18);
+    textSize(fontSize);
+    fill(190, 190, 190);
+    for (let prob of problems) {
+        text(prob.name, prob.x, prob.y);
+    }
 
-            for (let i = arrows.length - 1; i >= 0; i--) {
-                let a = arrows[i];
-                a.pos.add(a.vel);
+    // Center name — bold & glowing
+    let centerSize = constrain(min(width, height) / 9.5, 36, 82);
+    textSize(centerSize);
+    textStyle(BOLD);
+    fill(255);
+    text("FAHAMIDA", width / 2 + 2, height / 2 + 2);
+    fill(255, 100, 100);
+    text("FAHAMIDA", width / 2, height / 2);
+}
 
-                // Clean white arrows
-                stroke(255, 255, 255, 200);
-                strokeWeight(2);
-                let tailLen = min(width, height) * 0.025;
-                let from = a.pos.copy().sub(a.vel.copy().normalize().mult(tailLen));
-                line(from.x, from.y, a.pos.x, a.pos.y);
+// Touch support
+function touchMoved() { touchX = mouseX; touchY = mouseY; return false; }
+function touchStarted() { touchX = mouseX; touchY = mouseY; return false; }
+function touchEnded() { touchX = 0; touchY = 0; return false; }
 
-                if (a.pos.dist(createVector(width / 2, height / 2)) < scaleFactor * 5) {
-                    arrows.splice(i, 1);
-                }
-            }
-            noStroke();
+// Heart shape test
+function pointInPolygon(point, poly) {
+    let inside = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+        let xi = poly[i].x, yi = poly[i].y;
+        let xj = poly[j].x, yj = poly[j].y;
+        let intersect = ((yi > point.y) != (yj > point.y)) &&
+                        (point.x < (xj - xi) * (point.y - yi) / (yj - yi + 0.001) + xi);
+        if (intersect) inside = !inside;
+    }
+    return inside;
+}
 
-            // Particle physics
-            for (let p of particles) {
-                let acc = createVector(0, 0);
-
-                let toHome = p.home.copy().sub(p.pos).mult(0.02);
-                acc.add(toHome);
-
-                let mouse = createVector(mx, my);
-                let dMouse = p.pos.dist(mouse);
-                let repelRadius = isTouchDevice ? 150 : 100;
-                
-                if (dMouse < repelRadius && (mx !== 0 || my !== 0)) {
-                    let repel = p.pos.copy().sub(mouse).normalize().mult(20 / (dMouse * 0.05 + 1));
-                    acc.add(repel);
-                }
-
-                for (let a of arrows) {
-                    let d = p.pos.dist(a.pos);
-                    if (d < repelRadius * 0.5) {
-                        let repel = p.pos.copy().sub(a.pos).normalize().mult(10 / (d + 1));
-                        acc.add(repel);
-                    }
-                }
-
-                p.vel.add(acc);
-                p.vel.mult(0.92);
-                p.pos.add(p.vel);
-
-                // Clean white particles
-                fill(255, 255, 255, 230);
-                ellipse(p.pos.x, p.pos.y, 2.5, 2.5);
-            }
-
-            // Clean text rendering
-            textAlign(CENTER, CENTER);
-            
-            // Problem names - minimal and clean
-            let fontSize = constrain(min(width, height) / (width < 600 ? 30 : 34), 10, 16);
-            textSize(fontSize);
-            fill(180, 180, 180);
-            
-            for (let prob of problems) {
-                text(prob.name, prob.x, prob.y);
-            }
-
-            // Center name - bold and clean
-            let centerSize = constrain(min(width, height) / 10, 32, 75);
-            textSize(centerSize);
-            textStyle(BOLD);
-            fill(255, 255, 255);
-            text("FAHAMIDA", width / 2, height / 2);
-        }
-
-        function touchMoved() { touchX = mouseX; touchY = mouseY; return false; }
-        function touchStarted() { touchX = mouseX; touchY = mouseY; return false; }
-        function touchEnded() { touchX = 0; touchY = 0; return false; }
-
-        function pointInPolygon(point, poly) {
-            let inside = false;
-            for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-                let xi = poly[i].x, yi = poly[i].y;
-                let xj = poly[j].x, yj = poly[j].y;
-                let intersect = ((yi > point.y) != (yj > point.y)) && (point.x < (xj - xi) * (point.y - yi) / (yj - yi + 0.001) + xi);
-                if (intersect) inside = !inside;
-            }
-            return inside;
-        }
-
-        function windowResized() {
-            resizeCanvas(windowWidth, windowHeight);
-            updateScale();
-            generateHeart();
-            generateProblems();
-            generateParticles();
-        }
-    </script>
+function windowResized() {
+    resizeCanvas(windowWidth, windowHeight);
+    updateScale();
+    generateHeart();
+    generateProblems();
+    generateParticles();
+    arrows = [];
+}
+</script>
 </body>
 </html>
