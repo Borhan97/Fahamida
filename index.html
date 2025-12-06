@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>I Love You, Fahamida</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #000;
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.min.js"></script>
+</head>
+<body>
+    <script>
+        let particles = [];
+        let poly = [];
+        let problems = [];
+        let arrows = [];
+        let numParticles = 3000; // Particle count
+        let scaleFactor = 15;
+        // The list of problem names in uppercase.
+        let problemNames = ["FAMILY", "MY HEART", "DREAM", "LOVE", "STRESS", "PAIN", "LIFE", "BORHAN"];
+
+        function setup() {
+            createCanvas(windowWidth, windowHeight);
+            noStroke();
+            
+            // Generate heart boundary polygon using parametric equations
+            for (let t = 0; t < TWO_PI; t += 0.05) {
+                let x = scaleFactor * 16 * pow(sin(t), 3);
+                let y = -scaleFactor * (13 * cos(t) - 5 * cos(2 * t) - 2 * cos(3 * t) - cos(4 * t));
+                poly.push({x: x + width / 2, y: y + height / 2});
+            }
+            
+            // Generate particles inside the heart
+            while (particles.length < numParticles) {
+                let rx = random(width);
+                let ry = random(height);
+                if (pointInPolygon({x: rx, y: ry}, poly)) {
+                    particles.push({
+                        pos: createVector(rx, ry),
+                        home: createVector(rx, ry),
+                        vel: createVector(0, 0)
+                    });
+                }
+            }
+            
+            // Generate problem objects around the heart, including their names
+            for (let i = 0; i < problemNames.length; i++) {
+                let angle = i * TWO_PI / problemNames.length;
+                let dist = 400;
+                let px = width / 2 + dist * cos(angle);
+                let py = height / 2 + dist * sin(angle);
+                problems.push({x: px, y: py, name: problemNames[i]}); // Store the name
+            }
+        }
+
+        function draw() {
+            // Semi-transparent black background for a subtle particle trailing effect
+            fill(0, 0, 0, 50); 
+            rect(0, 0, width, height);
+            
+            // Increased arrow frequency
+            if (random(1) < 0.02) { 
+                let prob = random(problems);
+                let arr = {pos: createVector(prob.x, prob.y)};
+                let center = createVector(width / 2, height / 2);
+                let dir = center.copy().sub(arr.pos).normalize().mult(5); // Speed
+                arr.vel = dir;
+                arrows.push(arr);
+            }
+            
+            // Update and draw arrows
+            for (let i = arrows.length - 1; i >= 0; i--) {
+                let a = arrows[i];
+                a.pos.add(a.vel);
+                
+                // Draw arrow as a simple line with head
+                let arrowSize = 10;
+                let from = a.pos.copy().sub(a.vel.copy().normalize().mult(arrowSize));
+                stroke(255, 255, 0); // Yellow arrow
+                strokeWeight(2);
+                line(from.x, from.y, a.pos.x, a.pos.y);
+                noStroke();
+                
+                // Remove if reached near center
+                if (a.pos.dist(createVector(width / 2, height / 2)) < 20) {
+                    arrows.splice(i, 1);
+                }
+            }
+            
+            // Update and draw particles
+            for (let p of particles) {
+                let acc = createVector(0, 0);
+                
+                // Attraction to home position (spring force)
+                let toHome = p.home.copy().sub(p.pos).mult(0.01);
+                acc.add(toHome);
+                
+                // Repulsion from mouse if hovering nearby
+                let mouse = createVector(mouseX, mouseY);
+                let dMouse = p.pos.dist(mouse);
+                if (dMouse < 100) {
+                    let repel = p.pos.copy().sub(mouse).normalize().mult(20 / (dMouse + 1));
+                    acc.add(repel);
+                }
+                
+                // Repulsion from arrows
+                for (let a of arrows) {
+                    let dArrow = p.pos.dist(a.pos);
+                    if (dArrow < 100) {
+                        let repel = p.pos.copy().sub(a.pos).normalize().mult(20 / (dArrow + 1));
+                        acc.add(repel);
+                    }
+                }
+                
+                // Update velocity and position
+                p.vel.add(acc);
+                p.vel.mult(0.95); // Damping
+                p.pos.add(p.vel);
+                
+                // Draw the dot with vibrant magenta/pink color and smaller size
+                fill(255, 0, 128); // Vibrant Magenta
+                ellipse(p.pos.x, p.pos.y, 3, 3);
+            }
+            
+            // Draw problem names only (red dots removed)
+            for (let prob of problems) {
+                // The red circle drawing code is removed here.
+                
+                textSize(18);
+                fill(255);
+                textAlign(CENTER, CENTER);
+                // Display the specific problem name 
+                text(prob.name, prob.x, prob.y); // Centered where the dot used to be
+            }
+            
+            // Add the name in the center (Removed "I LOVE YOU!")
+            textAlign(CENTER, CENTER);
+
+            // Name
+            textSize(72);
+            fill(255);
+            text("FAHAMIDA", width / 2, height / 2); // Centered vertically and horizontally
+        }
+
+        // Ray-casting algorithm to check if point is inside polygon
+        function pointInPolygon(point, poly) {
+            let x = point.x, y = point.y;
+            let inside = false;
+            for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+                let xi = poly[i].x, yi = poly[i].y;
+                let xj = poly[j].x, yj = poly[j].y;
+                let intersect = ((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+                if (intersect) inside = !inside;
+            }
+            return inside;
+        }
+
+        // Resize canvas on window resize
+        function windowResized() {
+            resizeCanvas(windowWidth, windowHeight);
+            
+            // Recalculate heart polygon
+            poly = [];
+            for (let t = 0; t < TWO_PI; t += 0.05) {
+                let x = scaleFactor * 16 * pow(sin(t), 3);
+                let y = -scaleFactor * (13 * cos(t) - 5 * cos(2 * t) - 2 * cos(3 * t) - cos(4 * t));
+                poly.push({x: x + width / 2, y: y + height / 2});
+            }
+            
+            // Recalculate problem positions and re-assign names
+            problems = [];
+            for (let i = 0; i < problemNames.length; i++) {
+                let angle = i * TWO_PI / problemNames.length;
+                let dist = 400;
+                let px = width / 2 + dist * cos(angle);
+                let py = height / 2 + dist * sin(angle);
+                problems.push({x: px, y: py, name: problemNames[i]});
+            }
+            
+            // Regenerate particles 
+            particles = [];
+            while (particles.length < numParticles) {
+                let rx = random(width);
+                let ry = random(height);
+                if (pointInPolygon({x: rx, y: ry}, poly)) {
+                    particles.push({
+                        pos: createVector(rx, ry),
+                        home: createVector(rx, ry),
+                        vel: createVector(0, 0)
+                    });
+                }
+            }
+        }
+    </script>
+</body>
+</html>
