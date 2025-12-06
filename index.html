@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>I Love You, Fahamida ❤️</title>
+    <title>Fahamida</title>
     <style>
         * { margin: 0; padding: 0; }
         html, body {
@@ -13,7 +13,6 @@
             height: 100%;
             overflow: hidden;
             background: #000;
-            /* Prevent scrolling/bouncing on mobile */
             touch-action: none; 
         }
         canvas {
@@ -28,11 +27,21 @@
         let poly = [];
         let problems = [];
         let arrows = [];
-        let numParticles = 2200; // Slightly reduced for smoother mobile performance
+        let numParticles = 1500; 
         let scaleFactor;
-        let baseDist; 
+        let baseDist;
 
-        let problemNames = ["FAMILY", "MY HEART", "DREAM", "LOVE", "STRESS", "PAIN", "LIFE", "BORHAN"];
+        let problemNames = [
+            "MY HEART", 
+            "STRESS", 
+            "LOVE", 
+            "DEPRESSION", 
+            "LIFE", 
+            "PAIN", 
+            "DREAM", 
+            "FAMILY", 
+            "FRIENDS"
+        ];
 
         let touchX = 0;
         let touchY = 0;
@@ -50,18 +59,14 @@
 
         function updateScale() {
             let minDim = min(width, height);
-            
-            // 1. MAKE HEART SMALLER: Divided by 45 (was 30)
-            scaleFactor = minDim / 45; 
-            
-            // 2. PULL PROBLEMS CLOSER: Multiplied by 0.35 (was 0.45)
-            // This ensures text isn't pushed off the edge of the screen
-            baseDist = minDim * 0.35; 
+            scaleFactor = minDim / (width < 600 ? 45 : 50); 
+            let radiusMult = width < 600 ? 0.35 : 0.40;
+            baseDist = minDim * radiusMult; 
         }
 
         function generateHeart() {
             poly = [];
-            let heartYOffset = scaleFactor * 1; 
+            let heartYOffset = scaleFactor * 0.5; 
             
             for (let t = 0; t < TWO_PI; t += 0.04) {
                 let x = scaleFactor * 16 * pow(sin(t), 3);
@@ -76,8 +81,7 @@
         function generateParticles() {
             particles = [];
             let attempts = 0;
-            // Limit random search to center area for speed
-            let searchArea = min(width, height) * 0.3;
+            let searchArea = min(width, height) * 0.25;
 
             while (particles.length < numParticles && attempts < 10000) {
                 let rx = random(width / 2 - searchArea, width / 2 + searchArea);
@@ -97,52 +101,55 @@
         function generateProblems() {
             problems = [];
             for (let i = 0; i < problemNames.length; i++) {
-                let angle = i * TWO_PI / problemNames.length - HALF_PI; // Start from top
+                let angle = i * TWO_PI / problemNames.length - HALF_PI; 
                 let dist = baseDist;
                 let px = width / 2 + dist * cos(angle);
                 let py = height / 2 + dist * sin(angle);
-                problems.push({x: px, y: py, name: problemNames[i]});
+                problems.push({
+                    x: px, 
+                    y: py, 
+                    name: problemNames[i]
+                });
             }
         }
 
         function draw() {
-            // Trail effect
-            fill(0, 0, 0, 40);
+            // Clean dark background with subtle trails
+            fill(0, 0, 0, 50);
             rect(0, 0, width, height);
 
             let mx = isTouchDevice ? touchX : mouseX;
             let my = isTouchDevice ? touchY : mouseY;
 
-            // Spawn arrows
-            if (frameCount % 4 === 0 && random(1) < 0.3) {
+            // Arrow generation and movement
+            if (frameCount % 6 === 0 && random(1) < 0.35) {
                 let prob = random(problems);
                 let arr = {pos: createVector(prob.x, prob.y)};
                 let center = createVector(width / 2, height / 2);
-                // Arrow speed relative to screen size
-                let speed = min(width, height) * 0.01; 
+                let speed = min(width, height) * 0.015;
                 let dir = center.copy().sub(arr.pos).normalize().mult(speed);
                 arr.vel = dir;
                 arrows.push(arr);
             }
 
-            // Draw arrows
             for (let i = arrows.length - 1; i >= 0; i--) {
                 let a = arrows[i];
                 a.pos.add(a.vel);
 
-                stroke(255, 255, 100);
+                // Clean white arrows
+                stroke(255, 255, 255, 200);
                 strokeWeight(2);
-                let tailLen = min(width, height) * 0.02;
+                let tailLen = min(width, height) * 0.025;
                 let from = a.pos.copy().sub(a.vel.copy().normalize().mult(tailLen));
                 line(from.x, from.y, a.pos.x, a.pos.y);
 
-                if (a.pos.dist(createVector(width / 2, height / 2)) < scaleFactor * 2) {
+                if (a.pos.dist(createVector(width / 2, height / 2)) < scaleFactor * 5) {
                     arrows.splice(i, 1);
                 }
             }
             noStroke();
 
-            // Draw particles
+            // Particle physics
             for (let p of particles) {
                 let acc = createVector(0, 0);
 
@@ -153,7 +160,6 @@
                 let dMouse = p.pos.dist(mouse);
                 let repelRadius = isTouchDevice ? 150 : 100;
                 
-                // Only repel if user is touching/hovering
                 if (dMouse < repelRadius && (mx !== 0 || my !== 0)) {
                     let repel = p.pos.copy().sub(mouse).normalize().mult(20 / (dMouse * 0.05 + 1));
                     acc.add(repel);
@@ -171,31 +177,29 @@
                 p.vel.mult(0.92);
                 p.pos.add(p.vel);
 
-                fill(255, 20, 147); // Deep Pink
-                ellipse(p.pos.x, p.pos.y, 3, 3);
+                // Clean white particles
+                fill(255, 255, 255, 230);
+                ellipse(p.pos.x, p.pos.y, 2.5, 2.5);
             }
 
-            // Draw TEXT
+            // Clean text rendering
             textAlign(CENTER, CENTER);
             
-            // 1. Problem Names
-            textSize(constrain(min(width, height) / 30, 10, 16)); 
-            fill(200, 200, 255);
+            // Problem names - minimal and clean
+            let fontSize = constrain(min(width, height) / (width < 600 ? 30 : 34), 10, 16);
+            textSize(fontSize);
+            fill(180, 180, 180);
+            
             for (let prob of problems) {
                 text(prob.name, prob.x, prob.y);
             }
 
-            // 2. Center Name
-            textSize(constrain(min(width, height) / 10, 24, 60)); 
-            fill(255);
+            // Center name - bold and clean
+            let centerSize = constrain(min(width, height) / 10, 32, 75);
+            textSize(centerSize);
             textStyle(BOLD);
-            text("FAHAMIDA", width / 2, height / 2 - scaleFactor * 2);
-
-            // 3. I Love You
-            textSize(constrain(min(width, height) / 20, 12, 24)); 
-            fill(255, 100, 150);
-            textStyle(NORMAL);
-            text("I LOVE YOU ❤️", width / 2, height / 2 + scaleFactor * 4);
+            fill(255, 255, 255);
+            text("FAHAMIDA", width / 2, height / 2);
         }
 
         function touchMoved() { touchX = mouseX; touchY = mouseY; return false; }
